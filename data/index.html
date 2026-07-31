@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Better Fishing - Trip Reports</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --tag-bg: #0284c7;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0 0 0.5rem 0;
+            color: var(--accent-color);
+        }
+
+        .stats {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Filter Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            background: var(--card-bg);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        input, select {
+            background: var(--bg-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent-color);
+        }
+
+        /* Posts Grid */
+        .posts-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .post-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .post-card:hover {
+            border-color: var(--accent-color);
+        }
+
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .post-title {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--accent-color);
+        }
+
+        .post-date {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .post-tags {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            background: var(--border-color);
+            color: var(--text-main);
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            text-transform: capitalize;
+        }
+
+        .tag.species-tag {
+            background: var(--tag-bg);
+        }
+
+        .post-body {
+            line-height: 1.6;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            white-space: pre-line;
+        }
+
+        .post-footer {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .map-badge {
+            color: #4ade80;
+        }
+
+        @media (max-width: 640px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Better Fishing Log</h1>
+        <div class="stats" id="stats-counter">Loading trip reports...</div>
+    </header>
+
+    <div class="controls">
+        <input type="text" id="search-input" placeholder="Search keywords (e.g. Collins River, Muskie, jet boat)...">
+        
+        <select id="month-select">
+            <option value="all">All Months</option>
+            <option value="01">January</option>
+            <option value="02">February</option>
+            <option value="03">March</option>
+            <option value="04">April</option>
+            <option value="05">May</option>
+            <option value="06">June</option>
+            <option value="07">July</option>
+            <option value="08">August</option>
+            <option value="09">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+        </select>
+
+        <select id="species-select">
+            <option value="all">All Species</option>
+        </select>
+    </div>
+
+    <div class="posts-grid" id="posts-container"></div>
+</div>
+
+<script>
+    let allPosts = [];
+
+    // Load posts.json on startup
+    async function loadPosts() {
+        try {
+            const response = await fetch('posts.json');
+            allPosts = await response.json();
+            
+            // Sort by published date newest first
+            allPosts.sort((a, b) => new Date(b.published_date) - new Date(a.published_date));
+            
+            populateSpeciesDropdown(allPosts);
+            renderPosts(allPosts);
+        } catch (error) {
+            console.error('Error loading posts.json:', error);
+            document.getElementById('stats-counter').innerText = 'Failed to load posts.json. Ensure file is in the same directory.';
+        }
+    }
+
+    function populateSpeciesDropdown(posts) {
+        const speciesSet = new Set();
+        posts.forEach(post => {
+            const species = post.detected_metadata?.species || [];
+            species.forEach(s => speciesSet.add(s.toLowerCase()));
+        });
+
+        const speciesSelect = document.getElementById('species-select');
+        speciesSet.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+            speciesSelect.appendChild(opt);
+        });
+    }
+
+    function renderPosts(postsToRender) {
+        const container = document.getElementById('posts-container');
+        const stats = document.getElementById('stats-counter');
+        container.innerHTML = '';
+
+        stats.innerText = `Showing ${postsToRender.length} of ${allPosts.length} Trip Reports`;
+
+        if (postsToRender.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding: 2rem; color: var(--text-muted);">No trip reports match your current filters.</div>';
+            return;
+        }
+
+        postsToRender.forEach(post => {
+            const card = document.createElement('article');
+            card.className = 'post-card';
+
+            const formattedDate = post.published_date 
+                ? new Date(post.published_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                : 'Unknown Date';
+
+            const species = post.detected_metadata?.species || [];
+            const waterbody = post.detected_metadata?.waterbody;
+            const hasMaps = post.map_links && post.map_links.length > 0;
+            const imgCount = post.images ? post.images.length : 0;
+
+            // Trim raw text preview to 400 chars if too long
+            const rawContent = post.content_raw || post.content_markdown || '';
+            const textPreview = rawContent.length > 500 ? rawContent.substring(0, 500) + '...' : rawContent;
+
+            card.innerHTML = `
+                <div class="post-header">
+                    <h2 class="post-title">${post.title || post.id}</h2>
+                    <span class="post-date">${formattedDate}</span>
+                </div>
+
+                <div class="post-tags">
+                    ${waterbody ? `<span class="tag">📍 ${waterbody}</span>` : ''}
+                    ${species.map(s => `<span class="tag species-tag">🐟 ${s}</span>`).join('')}
+                </div>
+
+                <div class="post-body">${escapeHtml(textPreview)}</div>
+
+                <div class="post-footer">
+                    ${hasMaps ? `<span class="map-badge">🗺️ ${post.map_links.length} Map Link(s)</span>` : ''}
+                    ${imgCount > 0 ? `<span>📷 ${imgCount} Image(s)</span>` : ''}
+                </div>
+            `;
+
+            container.appendChild(card);
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Filter Logic
+    function filterPosts() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const selectedMonth = document.getElementById('month-select').value;
+        const selectedSpecies = document.getElementById('species-select').value;
+
+        const filtered = allPosts.filter(post => {
+            // Keyword match across content and title
+            const content = (post.content_raw || '').toLowerCase();
+            const title = (post.title || '').toLowerCase();
+            const matchesSearch = !searchTerm || content.includes(searchTerm) || title.includes(searchTerm);
+
+            // Month match
+            const postMonth = post.detected_metadata?.month || 
+                (post.published_date ? String(new Date(post.published_date).getMonth() + 1).padStart(2, '0') : '');
+            const matchesMonth = selectedMonth === 'all' || postMonth === selectedMonth;
+
+            // Species match
+            const postSpecies = (post.detected_metadata?.species || []).map(s => s.toLowerCase());
+            const matchesSpecies = selectedSpecies === 'all' || postSpecies.includes(selectedSpecies);
+
+            return matchesSearch && matchesMonth && matchesSpecies;
+        });
+
+        renderPosts(filtered);
+    }
+
+    // Event Listeners
+    document.getElementById('search-input').addEventListener('input', filterPosts);
+    document.getElementById('month-select').addEventListener('change', filterPosts);
+    document.getElementById('species-select').addEventListener('change', filterPosts);
+
+    // Initial Load
+    loadPosts();
+</script>
+
+</body>
+</html>
