@@ -1,0 +1,12 @@
+# Authentication & Environment variables
+session_state.json
+.env
+
+# Python caches & virtual environments
+__pycache__/
+venv/
+.venv/
+
+# System files
+.DS_Store
+*.log
